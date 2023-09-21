@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <ostream>
 #include <string>
@@ -31,6 +32,15 @@ int main() {
 
   double max = *std::max_element(sums.begin(), sums.end());
   std::cout << "Max Element: " << max << std::endl;
+
+  std::sort(sums.begin(), sums.end(), std::greater<int>());
+
+  int top3 = 0;
+  for (int i = 0; i < 3; ++i) {
+    top3 += sums[i];
+  }
+
+  std::cout << "Sum of Top 3: " << top3 << std::endl;
 
   return 0;
 }
