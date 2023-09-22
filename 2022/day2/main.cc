@@ -1,9 +1,12 @@
-#include <cassert>
 #include <fstream>
+#include <future>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <vector>
 
 enum class moves_t { rock, paper, scissors };
 enum class outcomes_t { win, lose, draw };
@@ -56,16 +59,57 @@ outcomes_t get_outcome(moves_t mx, moves_t my) {
   return outcomes_t::lose;
 }
 
-int main() {
-  std::ifstream fin("input.txt");
-  if (!fin.is_open()) {
-    std::cerr << "Failed to open input.txt" << std::endl;
-    return 1;
+outcomes_t get_outcome_from_char(char c) {
+  static const std::unordered_map<char, outcomes_t> char_to_outcome = {
+      {'X', outcomes_t::lose},
+      {'Y', outcomes_t::draw},
+      {'Z', outcomes_t::win},
+  };
+
+  auto outcome = char_to_outcome.find(c);
+  if (outcome == char_to_outcome.end()) {
+    throw std::runtime_error("Unexpected character: " + std::string(1, c));
   }
 
+  return outcome->second;
+}
+
+moves_t get_win(moves_t m) {
+  static const std::unordered_map<moves_t, moves_t> winning_move = {
+      {moves_t::rock, moves_t::paper},
+      {moves_t::paper, moves_t::scissors},
+      {moves_t::scissors, moves_t::rock},
+  };
+
+  return winning_move.at(m);
+}
+
+moves_t get_lose(moves_t m) {
+  static const std::unordered_map<moves_t, moves_t> losing_move = {
+      {moves_t::rock, moves_t::scissors},
+      {moves_t::paper, moves_t::rock},
+      {moves_t::scissors, moves_t::paper},
+  };
+
+  return losing_move.at(m);
+}
+
+moves_t fix_outcome(moves_t opp_move, outcomes_t target) {
+  if (target == outcomes_t::draw) {
+    return opp_move;
+  }
+
+  if (target == outcomes_t::win) {
+    return get_win(opp_move);
+  }
+
+  return get_lose(opp_move);
+}
+
+int part_one(const std::vector<std::string> &lines) {
   int total_score = 0;
 
-  for (std::string line; std::getline(fin, line);) {
+  for (const auto &line : lines) {
     moves_t opp_move = get_move(line[0]);
     moves_t your_move = get_move(line[2]);
 
@@ -73,7 +117,53 @@ int main() {
     total_score += get_outcome_score(get_outcome(your_move, opp_move));
   }
 
-  std::cout << "Total Score: " << total_score << std::endl;
+  return total_score;
+}
+
+int part_two(const std::vector<std::string> &lines) {
+  int total_score = 0;
+
+  for (const auto &line : lines) {
+    moves_t opp_move = get_move(line[0]);
+    outcomes_t desired_outcome = get_outcome_from_char(line[2]);
+    moves_t your_move = fix_outcome(opp_move, desired_outcome);
+
+    total_score +=
+        get_move_score(your_move) + get_outcome_score(desired_outcome);
+  }
+
+  return total_score;
+}
+
+std::vector<std::string> read_file(const std::string &filename) {
+  std::ifstream fin(filename);
+  if (!fin.is_open()) {
+    std::cerr << "Failed to open " << filename << std::endl;
+    exit(1);
+  }
+
+  std::vector<std::string> lines;
+  for (std::string line; std::getline(fin, line);) {
+    lines.push_back(line);
+  }
+
+  return lines;
+}
+
+int main() {
+  auto lines = read_file("input.txt");
+
+  // Trying out concurrency
+  std::future<int> future_one =
+      std::async(std::launch::async, part_one, std::ref(lines));
+  std::future<int> future_two =
+      std::async(std::launch::async, part_two, std::ref(lines));
+
+  auto part_one_score = future_one.get();
+  std::cout << "Part One Score: " << part_one_score << std::endl;
+
+  auto part_two_score = future_two.get();
+  std::cout << "Part Two Score: " << part_two_score << std::endl;
 
   return 0;
 }
