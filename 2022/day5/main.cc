@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -19,6 +20,21 @@ struct Instruction {
       stacks[destination - 1].push_back(c);
     }
   }
+
+  void execute_multi_crate_instruction(std::vector<std::vector<char>> &stacks) {
+    std::vector<char> crates_in_motion;
+    for (uint ui = 0; ui < quantity; ++ui) {
+      char c = stacks[origin - 1].back();
+      stacks[origin - 1].pop_back();
+
+      crates_in_motion.push_back(c);
+    }
+
+    while (!crates_in_motion.empty()) {
+      stacks[destination - 1].push_back(crates_in_motion.back());
+      crates_in_motion.pop_back();
+    }
+  }
 };
 
 struct Crane {
@@ -30,9 +46,16 @@ struct Crane {
     }
   }
 
+  void execute_multi_crate_instructions(
+      const std::vector<Instruction> &instructions) {
+    for (auto instruction : instructions) {
+      instruction.execute_multi_crate_instruction(stacks);
+    }
+  }
+
   void print_stacks() const {
-    for (auto ss : stacks) {
-      for (auto s : ss) {
+    for (const auto &ss : stacks) {
+      for (const auto &s : ss) {
         std::cout << s;
       }
 
@@ -42,11 +65,11 @@ struct Crane {
   }
 
   void print_tops() const {
-    for (auto s : stacks) {
+    for (const auto &s : stacks) {
       std::cout << s.back();
     }
 
-    std::cout << std::endl;
+    std::cout << std::endl << std::endl;
   }
 };
 
@@ -75,10 +98,6 @@ std::pair<std::string, std::string> parse_input() {
   }
 
   std::string instructions = buffer.str();
-
-  std::cout << crates << std::endl;
-  std::cout << instructions << std::endl;
-
   return {crates, instructions};
 }
 
@@ -111,13 +130,17 @@ Crane new_crane(const std::string &crates) {
   }
 
   Crane c;
-  c.stacks = stacks;
+  c.stacks = std::move(stacks);
 
   return c;
 }
 
 std::vector<Instruction> parse_instructions(const std::string &instructions) {
+  size_t num_instructions =
+      std::count(instructions.begin(), instructions.end(), '\n');
   std::vector<Instruction> parsed_instructions;
+  parsed_instructions.reserve(num_instructions);
+
   std::istringstream iss{instructions};
   std::string line;
 
@@ -127,7 +150,7 @@ std::vector<Instruction> parse_instructions(const std::string &instructions) {
     std::string t;
 
     ss >> t >> i.quantity >> t >> i.origin >> t >> i.destination;
-    parsed_instructions.push_back(i);
+    parsed_instructions.emplace_back(i);
   }
 
   return parsed_instructions;
@@ -135,12 +158,19 @@ std::vector<Instruction> parse_instructions(const std::string &instructions) {
 
 int main() {
   auto [crates, instructions] = parse_input();
+
   auto crane = new_crane(crates);
+  auto crate_mover_9001 = new_crane(crates);
+
   auto parsed_instructions = parse_instructions(instructions);
 
   crane.execute_instructions(parsed_instructions);
-  crane.print_stacks();
+  // crane.print_stacks();
   crane.print_tops();
+
+  crate_mover_9001.execute_multi_crate_instructions(parsed_instructions);
+  // crate_mover_9001.print_stacks();
+  crate_mover_9001.print_tops();
 
   return 0;
 }
